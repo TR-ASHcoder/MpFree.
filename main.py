@@ -186,7 +186,7 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 
 @bot.command()
 async def more(ctx):
-    await ctx.send("okay lolol myokaylinkssite.netlify.app")
+    await ctx.send("https://myokaylinkssite.netlify.app/")
 
 @bot.command()
 async def play(ctx: commands.Context, *, search: str | None = None):
@@ -380,7 +380,7 @@ async def disconnect(ctx: commands.Context):
     )
     em.add_field(
         name="*the bot has been `disconnected`*",
-        value="type in t.play and a song of choice to invite it back :]",
+        value="type in mplay and a song of choice to invite it back :]",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -422,7 +422,7 @@ async def skip(ctx: commands.Context):
     )
     em.add_field(
         name="*we `skipped` your song for ya*",
-        value="you better be grateful",
+        value=":p",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -432,7 +432,7 @@ async def queue(ctx: commands.Context):
     vc: wavelink.Player | None = ctx.voice_client
     if vc is None:
         return await ctx.reply(
-            "You are not in a vc, therefore, you cannot invoke the `t.queue` command",
+            "You are not in a vc, therefore, you cannot invoke the `mqueue` command",
             mention_author=False,
         )
 
@@ -495,7 +495,7 @@ async def help(ctx: commands.Context):
     )
     em.add_field(
         name="**play**:",
-        value="`t.play <song>` plays/queues · bare `t.play` resumes if paused",
+        value="`t.play <song>` plays/queues · bare `mplay` resumes if paused",
         inline=False,
     )
     em.add_field(
@@ -525,7 +525,7 @@ async def help(ctx: commands.Context):
     )
     em.add_field(
         name="**loop**:",
-        value="loops song that is being played",
+        value="loops song that is being played, send `command` again to stop looping song",
         inline=False,
     )
     em.add_field(
@@ -536,6 +536,11 @@ async def help(ctx: commands.Context):
     em.add_field(
         name="**info**:",
         value="shows info on the song being played",
+        inline=False,
+    )
+    em.add_field(
+        name="**more**:",
+        value="literally just sends you my website lmao",
         inline=False,
     )
     await ctx.send(embed=em)
