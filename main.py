@@ -188,7 +188,7 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 async def more(ctx):
     await ctx.send("https://myokaylinkssite.netlify.app/")
 
-@bot.command()
+@bot.command(aliases=["Play","p","P"])
 async def play(ctx: commands.Context, *, search: str | None = None):
 
     vc: wavelink.Player | None = ctx.voice_client
@@ -494,7 +494,7 @@ async def help(ctx: commands.Context):
     )
     em.add_field(
         name="**play**:",
-        value="`t.play <song>` plays/queues · bare `mplay` resumes if paused",
+        value="`mplay <song>` plays/queues · bare `mplay` resumes if paused",
         inline=False,
     )
     em.add_field(
