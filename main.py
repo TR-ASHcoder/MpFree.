@@ -426,7 +426,7 @@ async def skip(ctx: commands.Context):
     await ctx.reply(embed=em, mention_author=False)
 
 
-@bot.command()
+@bot.command(aliases=['q','Q'])
 async def queue(ctx: commands.Context):
     vc: wavelink.Player | None = ctx.voice_client
     if vc is None:
@@ -493,7 +493,7 @@ async def help(ctx: commands.Context):
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
-        name="**play**:",
+        name="**play** `or p`:",
         value="`mplay <song>` plays/queues · bare `mplay` resumes if paused",
         inline=False,
     )
@@ -503,7 +503,7 @@ async def help(ctx: commands.Context):
         inline=False,
     )
     em.add_field(
-        name="**resume**:",
+        name="**resume** `or unpause`:",
         value="resumes song that was paused",
         inline=False,
     )
@@ -528,7 +528,7 @@ async def help(ctx: commands.Context):
         inline=False,
     )
     em.add_field(
-        name="**queue**:",
+        name="**queue** `or q`:",
         value="shows queued songs",
         inline=False,
     )
