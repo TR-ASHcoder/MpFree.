@@ -16,7 +16,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="m", intents=intents)
 bot.remove_command("help")
 
-# tes
+
 
 
 STATUSES = [
