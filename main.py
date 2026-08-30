@@ -518,7 +518,7 @@ async def help(ctx: commands.Context):
         inline=False,
     )
     em.add_field(
-        name="**disconnect**:",
+        name="**disconnect** `or kill`:",
         value="makes MpFree leave the vc",
         inline=False,
     )
