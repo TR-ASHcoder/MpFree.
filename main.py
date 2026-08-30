@@ -193,7 +193,6 @@ async def play(ctx: commands.Context, *, search: str | None = None):
 
     vc: wavelink.Player | None = ctx.voice_client
 
-    # Bare t.play with no query → unpause if possible
     if not search or not search.strip():
         if vc is not None and vc.paused:
             await vc.pause(False)
@@ -202,14 +201,14 @@ async def play(ctx: commands.Context, *, search: str | None = None):
                 mention_author=False,
             )
         return await ctx.reply(
-            "Usage: `t.play <song name or url>`\n"
-            "Or `t.play` with no args while paused to resume.",
+            "Usage: `mplay <song name or url>`\n"
+            "Or `mplay` with no args while paused to resume.",
             mention_author=False,
         )
 
     if not getattr(ctx.author.voice, "channel", None):
         return await ctx.reply(
-            "You are not in a vc, therefore, you cannot invoke the `t.play` command",
+            "You are not in a vc, therefore, you cannot invoke the `mplay` command",
             mention_author=False,
         )
 
@@ -322,8 +321,8 @@ async def pause(ctx: commands.Context):
     await ctx.reply(embed=em, mention_author=False)
 
 
-# NOTE: do NOT alias this as "Play" — conflicts with t.play (case-insensitive)
-@bot.command(aliases=["Resume"])
+# NOTE: do NOT alias this as "Play" — conflicts with mplay (case-insensitive)
+@bot.command(aliases=["Resume","Unpause","unpause"])
 async def resume(ctx: commands.Context):
     vc = await get_player_or_error(ctx, "resume", require_playing=True)
     if vc is None:
@@ -343,7 +342,7 @@ async def resume(ctx: commands.Context):
     await ctx.reply(embed=em, mention_author=False)
 
 
-@bot.command()
+@bot.command(aliases=["STAP"])
 async def stop(ctx: commands.Context):
     vc = await get_player_or_error(ctx, "stop")
     if vc is None:
@@ -364,7 +363,7 @@ async def stop(ctx: commands.Context):
     await ctx.reply(embed=em, mention_author=False)
 
 
-@bot.command(aliases=["kys", "die"])
+@bot.command(aliases=["kys", "die","kill","leave","kill your self"])
 async def disconnect(ctx: commands.Context):
     vc: wavelink.Player | None = ctx.voice_client
     if vc is None:
