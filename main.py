@@ -185,6 +185,10 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 
 
 @bot.command()
+async def more(ctx):
+    await ctx.send("okay lolol myokaylinkssite.netlify.app")
+
+@bot.command()
 async def play(ctx: commands.Context, *, search: str | None = None):
 
     vc: wavelink.Player | None = ctx.voice_client
