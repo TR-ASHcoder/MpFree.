@@ -447,7 +447,7 @@ async def queue(ctx: commands.Context):
     for song_count, song in enumerate(vc.queue, start=1):
         em.add_field(
             name=f"Song: `{song_count}`",
-            value=f"`{song.title}`, {track.author}",
+            value=f"`{song.title}`",
             inline=False,
         )
     await ctx.reply(embed=em, mention_author=False)
