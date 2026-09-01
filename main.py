@@ -523,7 +523,7 @@ async def help(ctx: commands.Context):
         inline=False,
     )
     em.add_field(
-        name="**loop**:",
+        name="**test**:",
         value="loops song that is being played, send `command` again to stop looping song",
         inline=False,
     )
