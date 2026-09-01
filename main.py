@@ -367,7 +367,7 @@ async def disconnect(ctx: commands.Context):
     vc: wavelink.Player | None = ctx.voice_client
     if vc is None:
         return await ctx.reply(
-            "I'm not in a vc, therefore, you cannot invoke the `t.disconnect` command",
+            "I'm not in a vc, therefore, you cannot invoke the `mdisconnect` command",
             mention_author=False,
         )
 
