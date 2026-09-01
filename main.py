@@ -101,13 +101,13 @@ async def get_player_or_error(
     vc: wavelink.Player | None = ctx.voice_client
     if vc is None:
         await ctx.reply(
-            f"Nothing is currently playing, therefore you cannot invoke `t.{command_name}`",
+            f"Nothing is currently playing, therefore you cannot invoke `m{command_name}`",
             mention_author=False,
         )
         return None
     if require_playing and not vc.playing:
         await ctx.reply(
-            f"Nothing is currently playing, therefore you cannot invoke `t.{command_name}`",
+            f"Nothing is currently playing, therefore you cannot invoke `m{command_name}`",
             mention_author=False,
         )
         return None
@@ -116,12 +116,12 @@ async def get_player_or_error(
 
 def now_playing_embed(track: wavelink.Playable) -> discord.Embed:
     em = discord.Embed(
-        title="*~Now Playing~*",
+        title="*Now Playing*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
         name=f"`{track.title}`",
-        value=f"**By**: ||`{track.author}`||",
+        value=f"**By**: `{track.author}`",
     )
     return em
 
@@ -150,12 +150,12 @@ async def on_wavelink_track_start(payload: wavelink.TrackStartEventPayload):
         return
     if getattr(vc, "_announce_next", False):
         em = discord.Embed(
-            title="*~Next Playing~*",
+            title="*Next Playing*",
             color=discord.Color.from_rgb(255, 255, 255),
         )
         em.add_field(
             name=f"`{track.title}`",
-            value=f"**By**: ||`{track.author}`||",
+            value=f"**By**: `{track.author}`",
         )
         await ctx.reply(embed=em, mention_author=False)
     vc._announce_next = True
@@ -393,13 +393,13 @@ async def loop(ctx: commands.Context):
         vc.queue.mode = wavelink.QueueMode.normal
         title = vc.current.title if vc.current else "your song"
         await ctx.reply(
-            f'***~"`{title}`" is no longer looping~***',
+            f'***"`{title}`" is no longer looping***',
             mention_author=False,
         )
     else:
         vc.queue.mode = wavelink.QueueMode.loop
         await ctx.reply(
-            "***~Now looping your song~***",
+            "***Now looping your song***",
             mention_author=False,
         )
 
@@ -415,7 +415,7 @@ async def skip(ctx: commands.Context):
         await vc.pause(False)
 
     em = discord.Embed(
-        title="*~skipped~*",
+        title="*skipped*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
@@ -436,12 +436,12 @@ async def queue(ctx: commands.Context):
 
     if vc.queue.is_empty:
         return await ctx.reply(
-            "***~thy `Queue` is empty~***",
+            "***thy `Queue` is empty***",
             mention_author=False,
         )
 
     em = discord.Embed(
-        title="***~Queue~***",
+        title="***Queue***",
         color=discord.Color.from_rgb(46, 49, 54),
     )
     for song_count, song in enumerate(vc.queue, start=1):
@@ -467,7 +467,7 @@ async def info(ctx: commands.Context):
         )
 
     em = discord.Embed(
-        title="***~Info~***",
+        title="***>Info<***",
         description=f"**Artist:** \n `{track.author}`",
         color=discord.Color.from_rgb(100, 108, 245),
     )
