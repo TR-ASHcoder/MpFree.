@@ -28,10 +28,10 @@ STATUSES = [
     "Good Threads before good threads"
 ]
 
-LAVALINK_HOST = "lava2.kasawa.pro"
-LAVALINK_PORT = 2334
-LAVALINK_PASSWORD = "youshallnotpass"
-LAVALINK_SECURE = False
+LAVALINK_HOST = "lava-v4.millohost.my.id"
+LAVALINK_PORT = 443
+LAVALINK_PASSWORD = "https://discord.gg/mjS5J2K3ep"
+LAVALINK_SECURE = True
 
 async def ch_pr():
     await bot.wait_until_ready()
