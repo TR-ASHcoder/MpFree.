@@ -320,7 +320,7 @@ async def pause(ctx: commands.Context):
     await ctx.reply(embed=em, mention_author=False)
 
 
-# NOTE: do NOT alias this as "Play" — conflicts with mplay (case-insensitive)
+# do NOT alias this as "Play", conflicts with mplay 
 @bot.command(aliases=["Resume","Unpause","unpause"])
 async def resume(ctx: commands.Context):
     vc = await get_player_or_error(ctx, "resume", require_playing=True)
