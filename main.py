@@ -196,7 +196,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
         if vc is not None and vc.paused:
             await vc.pause(False)
             return await ctx.reply(
-                "***<-Resumed->***",
+                "***➤ Resumed***",
                 mention_author=False,
             )
         return await ctx.reply(
@@ -256,7 +256,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
     if isinstance(tracks, wavelink.Playlist):
         added = await vc.queue.put_wait(tracks)
         await ctx.reply(
-            f"***<-Added playlist `{tracks.name}` ({added} tracks) to the queue->***",
+            f"***➤ Added playlist `{tracks.name}` ({added} tracks) to the queue***",
             mention_author=False,
         )
         if not actively_playing:
@@ -280,7 +280,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
     if actively_playing:
         await vc.queue.put_wait(track)
         await ctx.reply(
-            f"***<-Added `{track.title}` to the queue->***",
+            f"***➤ Added `{track.title}` to the queue***",
             mention_author=False,
         )
         return
@@ -310,12 +310,12 @@ async def pause(ctx: commands.Context):
 
     await vc.pause(True)
     em = discord.Embed(
-        title="*~Paused~*",
+        title="*Paused*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
         name="*we `paused` your song for ya*",
-        value="you better be grateful",
+        value="either use `mplay` or `mresume` to unpause",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -331,12 +331,12 @@ async def resume(ctx: commands.Context):
 
     await vc.pause(False)
     em = discord.Embed(
-        title="*~Resumed~*",
+        title="*Resumed*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
         name="*we `resumed` your song for ya*",
-        value="you better be grateful",
+        value="enjoy ur song.. ig BAKA",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -352,12 +352,12 @@ async def stop(ctx: commands.Context):
     await vc.skip(force=True)
 
     em = discord.Embed(
-        title="*~Stopped~*",
+        title="*Stopped*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
         name="*we `stopped` your song for ya*",
-        value="you better be grateful",
+        value="use `mplay` and a song of ur choice to start it up again",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -373,12 +373,12 @@ async def disconnect(ctx: commands.Context):
 
     await vc.disconnect()
     em = discord.Embed(
-        title="*~Disconnected~*",
+        title="*Disconnected*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
         name="*the bot has been `disconnected`*",
-        value="type in mplay and a song of choice to invite it back :]",
+        value="type in `mplay` and a song of choice to invite it back :]",
     )
     await ctx.reply(embed=em, mention_author=False)
 
@@ -393,13 +393,13 @@ async def loop(ctx: commands.Context):
         vc.queue.mode = wavelink.QueueMode.normal
         title = vc.current.title if vc.current else "your song"
         await ctx.reply(
-            f'***"`{title}`" is no longer looping***',
+            f'***➤ "`{title}`" is no longer looping***',
             mention_author=False,
         )
     else:
         vc.queue.mode = wavelink.QueueMode.loop
         await ctx.reply(
-            "***Now looping your song***",
+            "***➤ Now looping your song***",
             mention_author=False,
         )
 
@@ -447,7 +447,7 @@ async def queue(ctx: commands.Context):
     for song_count, song in enumerate(vc.queue, start=1):
         em.add_field(
             name=f"Song: `{song_count}`",
-            value=f"`{song.title}`",
+            value=f"`{song.title}`, {track.author}",
             inline=False,
         )
     await ctx.reply(embed=em, mention_author=False)
