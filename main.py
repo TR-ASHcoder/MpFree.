@@ -436,7 +436,7 @@ async def queue(ctx: commands.Context):
 
     if vc.queue.is_empty:
         return await ctx.reply(
-            "***thy `Queue` is empty***",
+            "*thy **`Queue`** is empty*",
             mention_author=False,
         )
 
