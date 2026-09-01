@@ -467,16 +467,16 @@ async def info(ctx: commands.Context):
         )
 
     em = discord.Embed(
-        title="***>Info<***",
-        description=f"**Artist:** \n `{track.author}`",
+        title="***Info***",
+        description=f"➤ **Artist:** \n `{track.author}`",
         color=discord.Color.from_rgb(100, 108, 245),
     )
     em.add_field(
-        name="Length:",
+        name="➤ Length:",
         value=f"`{str(datetime.timedelta(milliseconds=track.length))}`",
     )
-    em.add_field(name="Paused:", value=f"`{vc.paused}`")
-    em.add_field(name="Playing:", value=f"`{vc.playing}`")
+    em.add_field(name="➤ Paused:", value=f"`{vc.paused}`")
+    em.add_field(name="➤ Playing:", value=f"`{vc.playing}`")
     if track.uri:
         em.add_field(
             name="Extra Info:",
