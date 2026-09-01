@@ -196,7 +196,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
         if vc is not None and vc.paused:
             await vc.pause(False)
             return await ctx.reply(
-                "***~Resumed~***",
+                "***<-Resumed->***",
                 mention_author=False,
             )
         return await ctx.reply(
@@ -256,7 +256,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
     if isinstance(tracks, wavelink.Playlist):
         added = await vc.queue.put_wait(tracks)
         await ctx.reply(
-            f"***~Added playlist `{tracks.name}` ({added} tracks) to the queue~***",
+            f"***<-Added playlist `{tracks.name}` ({added} tracks) to the queue->***",
             mention_author=False,
         )
         if not actively_playing:
@@ -280,7 +280,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
     if actively_playing:
         await vc.queue.put_wait(track)
         await ctx.reply(
-            f"***~Added `{track.title}` to the queue~***",
+            f"***<-Added `{track.title}` to the queue->***",
             mention_author=False,
         )
         return
