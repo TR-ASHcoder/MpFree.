@@ -4,19 +4,18 @@ import asyncio
 import datetime
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 import wavelink
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.voice_states = True
 
-bot = commands.Bot(command_prefix="m", intents=intents)
-bot.remove_command("help")
-
-
+bot = commands.Bot(command_prefix="!", intents=intents)  # prefix unused; slash only
 
 
 STATUSES = [
@@ -25,13 +24,14 @@ STATUSES = [
     "fard 💨",
     "bye >:3",
     "guess whos backkkk!!!",
-    "Good Threads before good threads"
+    "Good Threads before good threads",
 ]
 
 LAVALINK_HOST = "lavalinkv4.serenetia.com"
 LAVALINK_PORT = 80
 LAVALINK_PASSWORD = "https://seretia.link/discord"
 LAVALINK_SECURE = False
+
 
 async def ch_pr():
     await bot.wait_until_ready()
@@ -52,10 +52,7 @@ async def node_connect():
     uri = f"{scheme}://{LAVALINK_HOST}:{LAVALINK_PORT}"
     print(f"Connecting to Lavalink at {uri} ...")
     try:
-        node = wavelink.Node(
-            uri=uri,
-            password=LAVALINK_PASSWORD,
-        )
+        node = wavelink.Node(uri=uri, password=LAVALINK_PASSWORD)
         await wavelink.Pool.connect(client=bot, nodes=[node])
         print("Pool.connect() finished (waiting for node ready event)...")
     except Exception as e:
@@ -92,23 +89,29 @@ async def search_tracks(query: str) -> wavelink.Search:
     return []
 
 
+def get_vc(interaction: discord.Interaction) -> wavelink.Player | None:
+    if interaction.guild is None:
+        return None
+    return interaction.guild.voice_client  # type: ignore[return-value]
+
+
 async def get_player_or_error(
-    ctx: commands.Context,
+    interaction: discord.Interaction,
     command_name: str,
     *,
     require_playing: bool = True,
-):
-    vc: wavelink.Player | None = ctx.voice_client
+) -> wavelink.Player | None:
+    vc = get_vc(interaction)
     if vc is None:
-        await ctx.reply(
-            f"Nothing is currently playing, therefore you cannot invoke `m{command_name}`",
-            mention_author=False,
+        await interaction.followup.send(
+            f"Nothing is currently playing, therefore you cannot use `/{command_name}`",
+            ephemeral=True,
         )
         return None
     if require_playing and not vc.playing:
-        await ctx.reply(
-            f"Nothing is currently playing, therefore you cannot invoke `m{command_name}`",
-            mention_author=False,
+        await interaction.followup.send(
+            f"Nothing is currently playing, therefore you cannot use `/{command_name}`",
+            ephemeral=True,
         )
         return None
     return vc
@@ -129,6 +132,11 @@ def now_playing_embed(track: wavelink.Playable) -> discord.Embed:
 @bot.event
 async def on_ready():
     print("a new start")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash command(s)")
+    except Exception as e:
+        print(f"Slash sync failed: {e!r}")
     bot.loop.create_task(node_connect())
     bot.loop.create_task(ch_pr())
 
@@ -143,10 +151,10 @@ async def on_wavelink_track_start(payload: wavelink.TrackStartEventPayload):
     vc = payload.player
     track = payload.original or payload.track
     print(f"TRACK START: {getattr(track, 'title', track)}")
-    if vc is None:
+    if vc is None or track is None:
         return
-    ctx = getattr(vc, "ctx", None)
-    if ctx is None or track is None:
+    channel = getattr(vc, "announce_channel", None)
+    if channel is None:
         return
     if getattr(vc, "_announce_next", False):
         em = discord.Embed(
@@ -157,7 +165,10 @@ async def on_wavelink_track_start(payload: wavelink.TrackStartEventPayload):
             name=f"`{track.title}`",
             value=f"**By**: `{track.author}`",
         )
-        await ctx.reply(embed=em, mention_author=False)
+        try:
+            await channel.send(embed=em)
+        except Exception as e:
+            print(f"announce failed: {e!r}")
     vc._announce_next = True
 
 
@@ -168,14 +179,17 @@ async def on_wavelink_track_end(payload: wavelink.TrackEndEventPayload):
 
 @bot.event
 async def on_wavelink_track_exception(payload: wavelink.TrackExceptionEventPayload):
-    print(f"TRACK EXCEPTION: {payload.exception}")
+    err = payload.exception
+    msg = str(err.get("message") if isinstance(err, dict) else err)
+    msg = msg.replace("\n", " ")[:200]
+    print(f"TRACK EXCEPTION: {msg}")
     vc = payload.player
-    ctx = getattr(vc, "ctx", None) if vc else None
-    if ctx is not None:
-        await ctx.reply(
-            f"Track failed to play: `{payload.exception}`",
-            mention_author=False,
-        )
+    channel = getattr(vc, "announce_channel", None) if vc else None
+    if channel is not None:
+        try:
+            await channel.send(f"Track failed to play: `{msg}`")
+        except Exception:
+            pass
 
 
 @bot.event
@@ -183,81 +197,81 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
     print(f"TRACK STUCK: threshold={payload.threshold}")
 
 
-@bot.command()
-async def more(ctx):
-    await ctx.send("https://myokaylinkssite.netlify.app/")
+@bot.tree.command(name="more", description="Sends my website link")
+async def more(interaction: discord.Interaction):
+    await interaction.response.send_message("https://myokaylinkssite.netlify.app/")
 
-@bot.command(aliases=["Play","p","P"])
-async def play(ctx: commands.Context, *, search: str | None = None):
 
-    vc: wavelink.Player | None = ctx.voice_client
+@bot.tree.command(name="play", description="Play a song or resume if paused")
+@app_commands.describe(search="Song name or URL (leave empty to resume if paused)")
+async def play(interaction: discord.Interaction, search: str | None = None):
+    await interaction.response.defer()
+
+    vc = get_vc(interaction)
 
     if not search or not search.strip():
         if vc is not None and vc.paused:
             await vc.pause(False)
-            return await ctx.reply(
-                "***➤ Resumed***",
-                mention_author=False,
-            )
-        return await ctx.reply(
-            "Usage: `mplay <song name or url>`\n"
-            "Or `mplay` with no args while paused to resume.",
-            mention_author=False,
+            return await interaction.followup.send("***➤ Resumed***")
+        return await interaction.followup.send(
+            "Usage: `/play <song name or url>`\n"
+            "Or `/play` with no args while paused to resume.",
+            ephemeral=True,
         )
 
-    if not getattr(ctx.author.voice, "channel", None):
-        return await ctx.reply(
-            "You are not in a vc, therefore, you cannot invoke the `mplay` command",
-            mention_author=False,
+    if not getattr(interaction.user.voice, "channel", None):
+        return await interaction.followup.send(
+            "You are not in a vc, therefore you cannot use `/play`",
+            ephemeral=True,
         )
 
     try:
         wavelink.Pool.get_node()
     except wavelink.InvalidNodeException:
-        return await ctx.reply(
+        return await interaction.followup.send(
             "Lavalink node is not connected yet (or is offline). "
             "Wait a few seconds or check the console.",
-            mention_author=False,
+            ephemeral=True,
         )
 
     try:
         tracks = await search_tracks(search)
     except wavelink.LavalinkLoadException as e:
-        return await ctx.reply(
-            f"Node failed to load tracks for `{search}`.\n`{e}`",
-            mention_author=False,
+        return await interaction.followup.send(
+            f"Node failed to load tracks for `{search}`.\n`{e}`"[:500]
         )
     except Exception as e:
-        return await ctx.reply(f"Search error: `{e!r}`", mention_author=False)
+        return await interaction.followup.send(f"Search error: `{e!r}`")
 
     if not tracks:
-        return await ctx.reply(
-            f"No tracks found for `{search}`",
-            mention_author=False,
-        )
+        return await interaction.followup.send(f"No tracks found for `{search}`")
 
-    if not ctx.voice_client:
-        vc = await ctx.author.voice.channel.connect(
-            cls=wavelink.Player,
-            self_deaf=True,
-        )
+    if not vc:
+        try:
+            vc = await interaction.user.voice.channel.connect(
+                cls=wavelink.Player,
+                self_deaf=True,
+                timeout=60.0,
+            )
+        except Exception as e:
+            return await interaction.followup.send(
+                f"Couldn't join your voice channel: `{type(e).__name__}: {e}`"
+            )
     else:
-        vc = ctx.voice_client
+        vc = get_vc(interaction)
 
     vc.autoplay = wavelink.AutoPlayMode.partial
-    vc.ctx = ctx
+    vc.announce_channel = interaction.channel
     if not hasattr(vc, "_announce_next"):
         vc._announce_next = False
 
     await vc.set_volume(100)
-
     actively_playing = vc.playing and not vc.paused
 
     if isinstance(tracks, wavelink.Playlist):
         added = await vc.queue.put_wait(tracks)
-        await ctx.reply(
-            f"***➤ Added playlist `{tracks.name}` ({added} tracks) to the queue***",
-            mention_author=False,
+        await interaction.followup.send(
+            f"***➤ Added playlist `{tracks.name}` ({added} tracks) to the queue***"
         )
         if not actively_playing:
             vc._announce_next = False
@@ -268,10 +282,7 @@ async def play(ctx: commands.Context, *, search: str | None = None):
             if vc.paused:
                 await vc.pause(False)
             if vc.current is not None:
-                await ctx.reply(
-                    embed=now_playing_embed(vc.current),
-                    mention_author=False,
-                )
+                await interaction.followup.send(embed=now_playing_embed(vc.current))
         return
 
     track: wavelink.Playable = tracks[0]
@@ -279,11 +290,9 @@ async def play(ctx: commands.Context, *, search: str | None = None):
 
     if actively_playing:
         await vc.queue.put_wait(track)
-        await ctx.reply(
-            f"***➤ Added `{track.title}` to the queue***",
-            mention_author=False,
+        return await interaction.followup.send(
+            f"***➤ Added `{track.title}` to the queue***"
         )
-        return
 
     vc._announce_next = False
     await vc.queue.put_wait(track)
@@ -297,53 +306,49 @@ async def play(ctx: commands.Context, *, search: str | None = None):
     else:
         await vc.pause(False)
 
-    await ctx.reply(embed=now_playing_embed(track), mention_author=False)
+    await interaction.followup.send(embed=now_playing_embed(track))
 
 
-@bot.command(aliases=["Pause"])
-async def pause(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "pause")
+@bot.tree.command(name="pause", description="Pause the current song")
+async def pause(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "pause")
     if vc is None:
         return
     if vc.paused:
-        return await ctx.reply("Already paused.", mention_author=False)
+        return await interaction.followup.send("Already paused.", ephemeral=True)
 
     await vc.pause(True)
-    em = discord.Embed(
-        title="*Paused*",
-        color=discord.Color.from_rgb(255, 255, 255),
-    )
+    em = discord.Embed(title="*Paused*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
         name="*we `paused` your song for ya*",
-        value="either use `mplay` or `mresume` to unpause",
+        value="either use `/play` or `/resume` to unpause",
     )
-    await ctx.reply(embed=em, mention_author=False)
+    await interaction.followup.send(embed=em)
 
 
-# do NOT alias this as "Play", conflicts with mplay 
-@bot.command(aliases=["Resume","Unpause","unpause"])
-async def resume(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "resume", require_playing=True)
+@bot.tree.command(name="resume", description="Resume the paused song")
+async def resume(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "resume", require_playing=True)
     if vc is None:
         return
     if not vc.paused:
-        return await ctx.reply("Not paused.", mention_author=False)
+        return await interaction.followup.send("Not paused.", ephemeral=True)
 
     await vc.pause(False)
-    em = discord.Embed(
-        title="*Resumed*",
-        color=discord.Color.from_rgb(255, 255, 255),
-    )
+    em = discord.Embed(title="*Resumed*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
         name="*we `resumed` your song for ya*",
         value="enjoy ur song.. ig BAKA",
     )
-    await ctx.reply(embed=em, mention_author=False)
+    await interaction.followup.send(embed=em)
 
 
-@bot.command(aliases=["STAP"])
-async def stop(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "stop")
+@bot.tree.command(name="stop", description="Stop playback and clear the queue")
+async def stop(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "stop")
     if vc is None:
         return
 
@@ -351,24 +356,22 @@ async def stop(ctx: commands.Context):
     vc.queue.clear()
     await vc.skip(force=True)
 
-    em = discord.Embed(
-        title="*Stopped*",
-        color=discord.Color.from_rgb(255, 255, 255),
-    )
+    em = discord.Embed(title="*Stopped*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
         name="*we `stopped` your song for ya*",
-        value="use `mplay` and a song of ur choice to start it up again",
+        value="use `/play` and a song of ur choice to start it up again",
     )
-    await ctx.reply(embed=em, mention_author=False)
+    await interaction.followup.send(embed=em)
 
 
-@bot.command(aliases=["kys", "die","kill","leave","kill your self"])
-async def disconnect(ctx: commands.Context):
-    vc: wavelink.Player | None = ctx.voice_client
+@bot.tree.command(name="disconnect", description="Make the bot leave the voice channel")
+async def disconnect(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = get_vc(interaction)
     if vc is None:
-        return await ctx.reply(
-            "I'm not in a vc, therefore, you cannot invoke the `mdisconnect` command",
-            mention_author=False,
+        return await interaction.followup.send(
+            "I'm not in a vc, therefore you cannot use `/disconnect`",
+            ephemeral=True,
         )
 
     await vc.disconnect()
@@ -378,35 +381,33 @@ async def disconnect(ctx: commands.Context):
     )
     em.add_field(
         name="*the bot has been `disconnected`*",
-        value="type in `mplay` and a song of choice to invite it back :]",
+        value="type `/play` and a song of choice to invite it back :]",
     )
-    await ctx.reply(embed=em, mention_author=False)
+    await interaction.followup.send(embed=em)
 
 
-@bot.command()
-async def loop(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "loop")
+@bot.tree.command(name="loop", description="Toggle looping the current song")
+async def loop(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "loop")
     if vc is None:
         return
 
     if vc.queue.mode is wavelink.QueueMode.loop:
         vc.queue.mode = wavelink.QueueMode.normal
         title = vc.current.title if vc.current else "your song"
-        await ctx.reply(
-            f'***➤ "`{title}`" is no longer looping***',
-            mention_author=False,
+        await interaction.followup.send(
+            f'***➤ "`{title}`" is no longer looping***'
         )
     else:
         vc.queue.mode = wavelink.QueueMode.loop
-        await ctx.reply(
-            "***➤ Now looping your song***",
-            mention_author=False,
-        )
+        await interaction.followup.send("***➤ Now looping your song***")
 
 
-@bot.command()
-async def skip(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "skip")
+@bot.tree.command(name="skip", description="Skip to the next song in the queue")
+async def skip(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "skip")
     if vc is None:
         return
 
@@ -414,57 +415,55 @@ async def skip(ctx: commands.Context):
     if vc.paused:
         await vc.pause(False)
 
-    em = discord.Embed(
-        title="*skipped*",
-        color=discord.Color.from_rgb(255, 255, 255),
-    )
-    em.add_field(
-        name="*we `skipped` your song for ya*",
-        value=":p",
-    )
-    await ctx.reply(embed=em, mention_author=False)
+    em = discord.Embed(title="*skipped*", color=discord.Color.from_rgb(255, 255, 255))
+    em.add_field(name="*we `skipped` your song for ya*", value=":p")
+    await interaction.followup.send(embed=em)
 
 
-@bot.command(aliases=['q','Q'])
-async def queue(ctx: commands.Context):
-    vc: wavelink.Player | None = ctx.voice_client
+@bot.tree.command(name="queue", description="Show the queued songs")
+async def queue(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = get_vc(interaction)
     if vc is None:
-        return await ctx.reply(
-            "You are not in a vc, therefore, you cannot invoke the `mqueue` command",
-            mention_author=False,
+        return await interaction.followup.send(
+            "You are not in a vc, therefore you cannot use `/queue`",
+            ephemeral=True,
         )
 
     if vc.queue.is_empty:
-        return await ctx.reply(
-            "*thy **`Queue`** is empty*",
-            mention_author=False,
-        )
+        return await interaction.followup.send("*thy **`Queue`** is empty*")
+
+    songs = list(vc.queue)
+    total = len(songs)
+    limit = 20
+    lines = [
+        f"`{i}.` {(s.title or 'Unknown')[:80]}"
+        for i, s in enumerate(songs[:limit], start=1)
+    ]
+    desc = "\n".join(lines)
+    if total > limit:
+        desc += f"\n\n...and **{total - limit}** more"
 
     em = discord.Embed(
-        title="***Queue***",
+        title=f"***Queue***",
+        description=desc,
         color=discord.Color.from_rgb(46, 49, 54),
     )
-    for song_count, song in enumerate(vc.queue, start=1):
-        em.add_field(
-            name=f"Song: `{song_count}`",
-            value=f"`{song.title}`",
-            inline=False,
-        )
-    await ctx.reply(embed=em, mention_author=False)
+    if vc.current is not None:
+        em.set_footer(text=f"Now: {vc.current.title}")
+    await interaction.followup.send(embed=em)
 
 
-@bot.command()
-async def info(ctx: commands.Context):
-    vc = await get_player_or_error(ctx, "info")
+@bot.tree.command(name="info", description="Show info on the current song")
+async def info(interaction: discord.Interaction):
+    await interaction.response.defer()
+    vc = await get_player_or_error(interaction, "info")
     if vc is None:
         return
 
     track = vc.current
     if track is None:
-        return await ctx.reply(
-            "Nothing is currently playing.",
-            mention_author=False,
-        )
+        return await interaction.followup.send("Nothing is currently playing.")
 
     em = discord.Embed(
         title="***Info***",
@@ -482,66 +481,34 @@ async def info(ctx: commands.Context):
             name="Extra Info:",
             value=f"[Click me for original]({track.uri})",
         )
-    await ctx.send(embed=em)
+    await interaction.followup.send(embed=em)
 
 
-@bot.command(aliases=["HELP", "hep", "h", "H"])
-async def help(ctx: commands.Context):
+@bot.tree.command(name="help", description="Show bot commands")
+async def help_cmd(interaction: discord.Interaction):
     em = discord.Embed(
-        title="`commands:`",
+        title="`slash commands:`",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
-        name="**play** `or p`:",
-        value="`mplay <song>` plays/queues · bare `mplay` resumes if paused",
+        name="**/play**:",
+        value="`/play <song>` plays/queues - bare `/play` resumes if paused",
         inline=False,
     )
+    em.add_field(name="**/pause**:", value="pauses the current song", inline=False)
+    em.add_field(name="**/resume**:", value="resumes a paused song", inline=False)
+    em.add_field(name="**/stop**:", value="stops playback and clears the queue", inline=False)
+    em.add_field(name="**/skip**:", value="skips to the next song in queue", inline=False)
+    em.add_field(name="**/disconnect**:", value="makes MpFree leave the vc", inline=False)
     em.add_field(
-        name="**pause**:",
-        value="pauses song that is being played",
+        name="**/loop**:",
+        value="loops current song, run again to stop looping",
         inline=False,
     )
-    em.add_field(
-        name="**resume** `or unpause`:",
-        value="resumes song that was paused",
-        inline=False,
-    )
-    em.add_field(
-        name="**stop**:",
-        value="stops playback and clears the queue",
-        inline=False,
-    )
-    em.add_field(
-        name="**skip**:",
-        value="makes MpFree skip to the next song in queue",
-        inline=False,
-    )
-    em.add_field(
-        name="**disconnect** `or kill`:",
-        value="makes MpFree leave the vc",
-        inline=False,
-    )
-    em.add_field(
-        name="**loop**:",
-        value="loops song that is being played, send `command` again to stop looping song",
-        inline=False,
-    )
-    em.add_field(
-        name="**queue** `or q`:",
-        value="shows queued songs",
-        inline=False,
-    )
-    em.add_field(
-        name="**info**:",
-        value="shows info on the song being played",
-        inline=False,
-    )
-    em.add_field(
-        name="**more**:",
-        value="literally just sends you my website lmao",
-        inline=False,
-    )
-    await ctx.send(embed=em)
+    em.add_field(name="**/queue**:", value="shows queued songs", inline=False)
+    em.add_field(name="**/info**:", value="info on the song being played", inline=False)
+    em.add_field(name="**/more**:", value="sends my website", inline=False)
+    await interaction.response.send_message(embed=em)
 
 
 if __name__ == "__main__":
