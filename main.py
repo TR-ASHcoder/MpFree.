@@ -450,8 +450,49 @@ async def queue(interaction: discord.Interaction):
         color=discord.Color.from_rgb(46, 49, 54),
     )
     if vc.current is not None:
-        em.set_footer(text=f"Now: {vc.current.title}")
+        em.set_footer(text=f"𝘗𝘭𝘢𝘺𝘪𝘯𝘨 𝘯𝘰𝘸: {vc.current.title}")
     await interaction.followup.send(embed=em)
+
+
+
+@bot.tree.command(name="remove", description="Remove a track from the queue by its number")
+@app_commands.describe(number="Queue position to remove, see /queue")
+async def remove(interaction: discord.Interaction, number: app_commands.Range[int, 1, 1000]):
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        return
+
+    vc = get_vc(interaction)
+    if vc is None:
+        return await interaction.followup.send(
+            "I'm not in a vc and or nothing is queued.",
+            ephemeral=True,
+        )
+
+    if vc.queue.is_empty:
+        return await interaction.followup.send(
+            "Queue is empty nothing to remove.",
+            ephemeral=True,
+        )
+
+    songs = list(vc.queue)
+    if number > len(songs):
+        return await interaction.followup.send(
+            f"Invalid number. Queue only has **{len(songs)}** track(s). Use `/queue` to check.",
+            ephemeral=True,
+        )
+
+    removed = songs.pop(number - 1)  
+
+   
+    vc.queue.clear()
+    for song in songs:
+        await vc.queue.put_wait(song)
+
+    await interaction.followup.send(
+        f"***➤ Removed `{removed.title}` from the queue***"
+    )
 
 
 @bot.tree.command(name="info", description="Show info on the current song")
@@ -492,9 +533,10 @@ async def help_cmd(interaction: discord.Interaction):
     )
     em.add_field(
         name="**/play**:",
-        value="`/play <song>` plays/queues - bare `/play` resumes if paused",
+        value="`/play <song>` plays/queues and just `/play` resumes if paused",
         inline=False,
     )
+    em.add_field(name="**/remove**:", value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)", inline=False,)
     em.add_field(name="**/pause**:", value="pauses the current song", inline=False)
     em.add_field(name="**/resume**:", value="resumes a paused song", inline=False)
     em.add_field(name="**/stop**:", value="stops playback and clears the queue", inline=False)
