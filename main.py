@@ -25,6 +25,10 @@ STATUSES = [
     "bye >:3",
     "guess whos backkkk!!!",
     "Good Threads before good threads",
+    "geez i miss 2021",
+    "We using slash commands now?!?!",
+    "Hello World by Louie Zong",
+    "Never Gonna Give You Up by Rick Astley",
 ]
 
 LAVALINK_HOST = "lavalinkv4.serenetia.com"
