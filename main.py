@@ -534,8 +534,12 @@ async def remove(interaction: discord.Interaction, number: app_commands.Range[in
 
 @bot.tree.command(name="info", description="Show info on the current song")
 async def info(interaction: discord.Interaction):
-    await interaction.response.defer()
-    vc = await get_player_or_error(interaction, "info")
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        return
+
+    vc = await get_player_or_error(interaction, "info", require_playing=False)
     if vc is None:
         return
 
@@ -543,24 +547,34 @@ async def info(interaction: discord.Interaction):
     if track is None:
         return await interaction.followup.send("Nothing is currently playing.")
 
+    is_paused = bool(vc.paused)
+    is_actively_playing = bool(vc.playing) and not is_paused
+
     em = discord.Embed(
         title="***Info***",
         description=f"➤ **Artist:** \n `{track.author}`",
         color=discord.Color.from_rgb(100, 108, 245),
     )
     em.add_field(
+        name="➤ Title:",
+        value=f"`{track.title}`",
+        inline=False,
+    )
+    em.add_field(
         name="➤ Length:",
         value=f"`{str(datetime.timedelta(milliseconds=track.length))}`",
     )
-    em.add_field(name="➤ Paused:", value=f"`{vc.paused}`")
-    em.add_field(name="➤ Playing:", value=f"`{vc.playing}`")
+    em.add_field(name="➤ Playing:", value=f"`{is_actively_playing}`")
+    em.add_field(name="➤ Paused:", value=f"`{is_paused}`")
+
     if track.uri:
         em.add_field(
             name="Extra Info:",
             value=f"[Click me for original]({track.uri})",
+            inline=False,
         )
-    await interaction.followup.send(embed=em)
 
+    await interaction.followup.send(embed=em)
 
 @bot.tree.command(name="help", description="Show bot commands")
 async def help_cmd(interaction: discord.Interaction):
