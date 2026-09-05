@@ -419,8 +419,7 @@ async def skip(interaction: discord.Interaction):
     if vc.paused:
         await vc.pause(False)
 
-    em = discord.Embed(title="*skipped*", color=discord.Color.from_rgb(255, 255, 255))
-    em.add_field(name="*we `skipped` your song for ya*", value=":p")
+    em = discord.Embed(title="*skipped your song*", color=discord.Color.from_rgb(255, 255, 255))
     await interaction.followup.send(embed=em)
 
 
