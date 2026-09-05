@@ -15,7 +15,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)  # prefix unused; slash only
+bot = commands.Bot(command_prefix="m", intents=intents)  # prefix unused; slash only
 
 
 STATUSES = [
