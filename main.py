@@ -455,13 +455,13 @@ class QueueView(discord.ui.View):
         em.set_footer(text=footer)
         return em
 
-    @discord.ui.button(label="⮘", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="￩", style=discord.ButtonStyle.secondary)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page = max(0, self.page - 1)
         self._update_buttons()
         await interaction.response.edit_message(embed=self.embed(), view=self)
 
-    @discord.ui.button(label="⮚", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="￫", style=discord.ButtonStyle.secondary)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page = min(self.pages - 1, self.page + 1)
         self._update_buttons()
