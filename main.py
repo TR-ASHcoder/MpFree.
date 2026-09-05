@@ -424,9 +424,58 @@ async def skip(interaction: discord.Interaction):
     await interaction.followup.send(embed=em)
 
 
+class QueueView(discord.ui.View):
+    def __init__(self, interaction: discord.Interaction, songs: list, current_title: str | None):
+        super().__init__(timeout=120)
+        self.songs = songs
+        self.current_title = current_title
+        self.page = 0
+        self.per_page = 10
+        self.pages = max(1, (len(songs) + self.per_page - 1) // self.per_page)
+        self._update_buttons()
+
+    def _update_buttons(self):
+        self.prev_btn.disabled = self.page <= 0
+        self.next_btn.disabled = self.page >= self.pages - 1
+
+    def embed(self) -> discord.Embed:
+        start = self.page * self.per_page
+        chunk = self.songs[start : start + self.per_page]
+        lines = [
+            f"`{start + i}.` {(s.title or 'Unknown')[:80]}"
+            for i, s in enumerate(chunk, start=1)
+        ]
+        em = discord.Embed(
+            title=f"***Queue*** ({len(self.songs)} track{'s' if len(self.songs) != 1 else ''})",
+            description="\n".join(lines) or "*empty page*",
+            color=discord.Color.from_rgb(46, 49, 54),
+        )
+        footer = f"Page {self.page + 1}/{self.pages}"
+        if self.current_title:
+            footer += f" ~ Playing now: {self.current_title}"
+        em.set_footer(text=footer)
+        return em
+
+    @discord.ui.button(label="⮘", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = max(0, self.page - 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.embed(), view=self)
+
+    @discord.ui.button(label="⮚", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = min(self.pages - 1, self.page + 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.embed(), view=self)
+
+
 @bot.tree.command(name="queue", description="Show the queued songs")
 async def queue(interaction: discord.Interaction):
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        return
+
     vc = get_vc(interaction)
     if vc is None:
         return await interaction.followup.send(
@@ -438,25 +487,9 @@ async def queue(interaction: discord.Interaction):
         return await interaction.followup.send("*thy **`Queue`** is empty*")
 
     songs = list(vc.queue)
-    total = len(songs)
-    limit = 20
-    lines = [
-        f"`{i}.` {(s.title or 'Unknown')[:80]}"
-        for i, s in enumerate(songs[:limit], start=1)
-    ]
-    desc = "\n".join(lines)
-    if total > limit:
-        desc += f"\n\n...and **{total - limit}** more"
-
-    em = discord.Embed(
-        title=f"***Queue***",
-        description=desc,
-        color=discord.Color.from_rgb(46, 49, 54),
-    )
-    if vc.current is not None:
-        em.set_footer(text=f"𝘗𝘭𝘢𝘺𝘪𝘯𝘨 𝘯𝘰𝘸: {vc.current.title}")
-    await interaction.followup.send(embed=em)
-
+    current = vc.current.title if vc.current else None
+    view = QueueView(interaction, songs, current)
+    await interaction.followup.send(embed=view.embed(), view=view)
 
 
 @bot.tree.command(name="remove", description="Remove a track from the queue by its number")
@@ -540,7 +573,6 @@ async def help_cmd(interaction: discord.Interaction):
         value="`/play <song>` plays/queues and just `/play` resumes if paused",
         inline=False,
     )
-    em.add_field(name="**/remove**:", value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)", inline=False,)
     em.add_field(name="**/pause**:", value="pauses the current song", inline=False)
     em.add_field(name="**/resume**:", value="resumes a paused song", inline=False)
     em.add_field(name="**/stop**:", value="stops playback and clears the queue", inline=False)
@@ -552,6 +584,7 @@ async def help_cmd(interaction: discord.Interaction):
         inline=False,
     )
     em.add_field(name="**/queue**:", value="shows queued songs", inline=False)
+    em.add_field(name="**/remove**:", value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)", inline=False,)
     em.add_field(name="**/info**:", value="info on the song being played", inline=False)
     em.add_field(name="**/more**:", value="sends my website", inline=False)
     await interaction.response.send_message(embed=em)
