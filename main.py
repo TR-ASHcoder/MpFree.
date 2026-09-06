@@ -2,6 +2,7 @@ import os
 import random
 import asyncio
 import datetime
+import time
 
 import discord
 from discord import app_commands
@@ -35,6 +36,9 @@ LAVALINK_HOST = "lava2.kasawa.pro"
 LAVALINK_PORT = 2334
 LAVALINK_PASSWORD = "youshallnotpass"
 LAVALINK_SECURE = False
+
+import time
+
 
 
 async def ch_pr():
@@ -205,6 +209,53 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 async def more(interaction: discord.Interaction):
     await interaction.response.send_message("https://myokaylinkssite.netlify.app/")
 
+import time
+
+import time
+import aiohttp
+
+@bot.tree.command(name="ping", description="Show bot and Lavalink latency")
+async def ping(interaction: discord.Interaction):
+    start = time.perf_counter()
+    await interaction.response.defer()
+    roundtrip_ms = (time.perf_counter() - start) * 1000
+    ws_ms = bot.latency * 1000
+
+    node_line = "`not connected`"
+    lavalink_ms = None
+
+    try:
+        node = wavelink.Pool.get_node()
+        # uri is like http://host:port
+        info_url = f"{node.uri.rstrip('/')}/v4/info"
+        password = node.password
+
+        t0 = time.perf_counter()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                info_url,
+                headers={"Authorization": password},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                await resp.read()
+                lavalink_ms = (time.perf_counter() - t0) * 1000
+                node_line = f"`{node.uri}` — `{lavalink_ms:.0f} ms` (HTTP {resp.status})"
+    except Exception as e:
+        try:
+            node = wavelink.Pool.get_node()
+            node_line = f"`{node.uri}` — failed (`{type(e).__name__}`)"
+        except Exception:
+            node_line = "`not connected`"
+
+    em = discord.Embed(
+        title="*Pong*",
+        color=discord.Color.from_rgb(255, 255, 255),
+    )
+    em.add_field(name="WebSocket", value=f"`{ws_ms:.0f} ms`", inline=True)
+    em.add_field(name="Round-trip", value=f"`{roundtrip_ms:.0f} ms`", inline=True)
+    em.add_field(name="Lavalink", value=node_line, inline=False)
+
+    await interaction.followup.send(embed=em)
 
 @bot.tree.command(name="play", description="Play a song or resume if paused")
 @app_commands.describe(search="Song name or URL (leave empty to resume if paused)")
