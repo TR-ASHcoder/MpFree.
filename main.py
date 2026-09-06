@@ -490,6 +490,43 @@ async def queue(interaction: discord.Interaction):
     view = QueueView(interaction, songs, current)
     await interaction.followup.send(embed=view.embed(), view=view)
 
+@bot.tree.command(name="shuffle", description="Shuffle the songs in the queue")
+async def shuffle(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        return
+
+    vc = get_vc(interaction)
+    if vc is None:
+        return await interaction.followup.send(
+            "I'm not in a vc / nothing is queued.",
+            ephemeral=True,
+        )
+
+    if vc.queue.is_empty:
+        return await interaction.followup.send(
+            "Queue is empty, nothing to shuffle.",
+            ephemeral=True,
+        )
+
+    songs = list(vc.queue)
+    if len(songs) < 2:
+        return await interaction.followup.send(
+            "Need at least 2 songs in the queue to shuffle.",
+            ephemeral=True,
+        )
+
+    random.shuffle(songs)
+
+    vc.queue.clear()
+    for song in songs:
+        await vc.queue.put_wait(song)
+
+    await interaction.followup.send(
+        f"***➤ Shuffled `{len(songs)}` tracks in the queue***"
+    )
+
 
 @bot.tree.command(name="remove", description="Remove a track from the queue by its number")
 @app_commands.describe(number="Queue position to remove, see /queue")
@@ -591,13 +628,10 @@ async def help_cmd(interaction: discord.Interaction):
     em.add_field(name="**/stop**:", value="stops playback and clears the queue", inline=False)
     em.add_field(name="**/skip**:", value="skips to the next song in queue", inline=False)
     em.add_field(name="**/disconnect**:", value="makes MpFree leave the vc", inline=False)
-    em.add_field(
-        name="**/loop**:",
-        value="loops current song, run again to stop looping",
-        inline=False,
-    )
+    em.add_field(name="**/loop**:", value="loops current song, run again to stop looping", inline=False,)
     em.add_field(name="**/queue**:", value="shows queued songs", inline=False)
     em.add_field(name="**/remove**:", value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)", inline=False,)
+    em.add_field(name="**/shuffle**:", value="randomizes the order of songs in the queue", inline=False,)
     em.add_field(name="**/info**:", value="info on the song being played", inline=False)
     em.add_field(name="**/more**:", value="sends my website", inline=False)
     await interaction.response.send_message(embed=em)
