@@ -31,11 +31,15 @@ STATUSES = [
     "Never Gonna Give You Up by Rick Astley",
 ]
 
-LAVALINK_HOST = "lava2.kasawa.pro"
-LAVALINK_PORT = 2334
-LAVALINK_PASSWORD = "youshallnotpass"
-LAVALINK_SECURE = False
+#LAVALINK_HOST = "lava2.kasawa.pro"
+#LAVALINK_PORT = 2334
+#LAVALINK_PASSWORD = "youshallnotpass"
+#LAVALINK_SECURE = False
 
+LAVALINK_HOST = "lavalinkv4.serenetia.com"
+LAVALINK_PORT = 80
+LAVALINK_PASSWORD = "https://seretia.link/discord"
+LAVALINK_SECURE = False
 
 async def ch_pr():
     await bot.wait_until_ready()
