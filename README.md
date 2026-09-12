@@ -4,7 +4,7 @@ A free, self-hosted Discord music bot built with `discord.py` and `wavelink`. Pl
 
 ## Features
 
--  Play tracks or full playlists via search or URL — YouTube, YouTube Music, and SoundCloud are searched directly; Spotify links are also supported if the connected Lavalink node has a Spotify-resolving plugin (e.g. [LavaSrc](https://github.com/topi314/LavaSrc)) enabled
+-  Play tracks or full playlists via search or URL - YouTube, YouTube Music, and SoundCloud are searched directly, Spotify links are also supported if the connected Lavalink node has a Spotify-resolving plugin (e.g. [LavaSrc](https://github.com/topi314/LavaSrc)) enabled
 -  Pause, resume, stop, skip, and loop playback
 -  Paginated, interactive queue view (with prev/next buttons)
 -  Shuffle and remove individual tracks from the queue
@@ -83,7 +83,7 @@ On startup, the bot syncs its slash commands and connects to its configured Lava
 | `/loop` | Toggles looping of the current song |
 | `/info` | Shows info about the currently playing song |
 | `/disconnect` | Makes the bot leave the voice channel |
-| `/ping` | Shows bot and Lavalink latency | [ isnt in `/help` ]
+| `/ping` | Shows bot and Lavalink latency [ isnt in `/help` ] | 
 | `/more` | Sends the developer's website link |
 | `/help` | Lists all available commands |
 
