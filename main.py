@@ -31,13 +31,11 @@ STATUSES = [
     "Hello World by Louie Zong",
     "Never Gonna Give You Up by Rick Astley",
 ]
-
+# lavalink server ( thanks kasawa! )
 LAVALINK_HOST = "lava2.kasawa.pro"
 LAVALINK_PORT = 2334
 LAVALINK_PASSWORD = "youshallnotpass"
 LAVALINK_SECURE = False
-
-import time
 
 
 
@@ -693,3 +691,39 @@ if __name__ == "__main__":
     if not token:
         raise SystemExit("Missing DISCORD_TOKEN in .env")
     bot.run(token)
+
+
+
+
+
+
+
+'''                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+           By TR ASH                                                                     
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                                                                                                   
+                   ░███                              ██                    ░███                    
+░█░               ░█████                                 ████             ░█████                ░█▒
+ ███▓             ██▓ ▓██                                ████████████████ ██▓ ███             ▓███ 
+   ▒████▒        ███   ███                               ██████████████████▓   ███        ▒████▒   
+    ░▓█████░    ███     ███    ▒█████▒                   ██████████████████     ███     █████▓▒    
+ ▒████▒▒▓██░                   ▓█████▓   ▒██    ▒█▓    ▓█▒██████████████                ██▓▒▒████▒ 
+░██░████▓▒                      ████▓    ▒██    ▒█▓    ▓█▒ ████████████                  ▒▓████░▓█▒
+ ▒███░                                    ██▒  ▒███▒  ▒██    ██████                          ░███▒ 
+░█▓                                        ▒████▒ ▒████▒                                        ▓█▒
+                                                                                           
+
+'''
