@@ -3,6 +3,7 @@ import random
 import asyncio
 import datetime
 import time
+import aiohttp
 
 import discord
 from discord import app_commands
@@ -18,7 +19,6 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="m", intents=intents)  # prefix unused; slash only
 
-
 STATUSES = [
     "hi :3",
     "The FitnessGram pacer test",
@@ -31,12 +31,15 @@ STATUSES = [
     "Hello World by Louie Zong",
     "Never Gonna Give You Up by Rick Astley",
 ]
+
 # lavalink server ( thanks kasawa! )
 LAVALINK_HOST = "lava2.kasawa.pro"
 LAVALINK_PORT = 2334
 LAVALINK_PASSWORD = "youshallnotpass"
 LAVALINK_SECURE = False
 
+# leave VC after this many minutes alone or with no music
+IDLE_LEAVE_MINUTES = 10
 
 
 async def ch_pr():
@@ -49,7 +52,7 @@ async def ch_pr():
                 name=status,
             )
         )
-        await asyncio.sleep(10)
+        await asyncio.sleep(5)
 
 
 async def node_connect():
@@ -65,20 +68,95 @@ async def node_connect():
         print(f"Lavalink connect FAILED: {e!r}")
 
 
+async def idle_disconnect_task():
+    """Leave VC if idle (no track + empty queue) OR alone in the channel for IDLE_LEAVE_MINUTES."""
+    await bot.wait_until_ready()
+    idle_for: dict[int, float] = {}  # guild_id -> seconds meeting leave conditions
+
+    while not bot.is_closed():
+        await asyncio.sleep(30)
+
+        for guild in bot.guilds:
+            vc = guild.voice_client
+            if vc is None:
+                idle_for.pop(guild.id, None)
+                continue
+
+            channel = vc.channel
+            humans = 0
+            if channel is not None:
+                humans = sum(1 for m in channel.members if not m.bot)
+
+            alone = humans == 0
+            has_current = vc.current is not None
+            has_queue = not vc.queue.is_empty
+            music_idle = not has_current and not has_queue
+            should_count = alone or music_idle
+
+            if not should_count:
+                idle_for[guild.id] = 0.0
+                continue
+
+            idle_for[guild.id] = idle_for.get(guild.id, 0.0) + 30.0
+            if idle_for[guild.id] >= IDLE_LEAVE_MINUTES * 60:
+                try:
+                    announce = getattr(vc, "announce_channel", None)
+                    reason = (
+                        "alone in VC"
+                        if alone
+                        else f"no music for {IDLE_LEAVE_MINUTES} min"
+                    )
+                    await vc.disconnect()
+                    if announce is not None:
+                        try:
+                            em = discord.Embed(
+                                title="*Bye Bye 👋*",
+                                color=discord.Color.from_rgb(255, 255, 255),
+                            )
+                            em.add_field(
+                                name=f"left after idle - `{reason}`",
+                                value="use `/play` and a song of ur choice to start it up again",
+                            )
+                            await announce.send(embed=em)
+                        except Exception:
+                            pass
+                    print(f"Idle leave: guild={guild.id} reason={reason}")
+                except Exception as e:
+                    print(f"Idle leave failed: {e!r}")
+                idle_for.pop(guild.id, None)
+
+
 async def search_tracks(query: str) -> wavelink.Search:
-    sources = [
+    q = query.strip()
+
+    if q.startswith(("http://", "https://")):
+        try:
+            results = await wavelink.Playable.search(q)
+            if results:
+                print("search OK source=url")
+                return results
+        except Exception as e:
+            print(f"url search failed: {e!r}")
+
+    sources: list = [
         wavelink.TrackSource.YouTube,
         wavelink.TrackSource.YouTubeMusic,
         wavelink.TrackSource.SoundCloud,
-        None,
     ]
+    if hasattr(wavelink.TrackSource, "Spotify"):
+        sources.append(wavelink.TrackSource.Spotify)
+    sources.append("spsearch")
+    sources.append(None)
+
     last_err: Exception | None = None
     for source in sources:
         try:
             if source is None:
-                results = await wavelink.Playable.search(query)
+                results = await wavelink.Playable.search(q)
+            elif source == "spsearch":
+                results = await wavelink.Playable.search(f"spsearch:{q}")
             else:
-                results = await wavelink.Playable.search(query, source=source)
+                results = await wavelink.Playable.search(q, source=source)
             if results:
                 print(f"search OK source={source}")
                 return results
@@ -90,6 +168,7 @@ async def search_tracks(query: str) -> wavelink.Search:
             last_err = e
             print(f"search failed source={source}: {e!r}")
             continue
+
     if last_err is not None:
         raise last_err
     return []
@@ -145,6 +224,7 @@ async def on_ready():
         print(f"Slash sync failed: {e!r}")
     bot.loop.create_task(node_connect())
     bot.loop.create_task(ch_pr())
+    bot.loop.create_task(idle_disconnect_task())
 
 
 @bot.event
@@ -207,10 +287,6 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 async def more(interaction: discord.Interaction):
     await interaction.response.send_message("https://myokaylinkssite.netlify.app/")
 
-import time
-
-import time
-import aiohttp
 
 @bot.tree.command(name="ping", description="Show bot and Lavalink latency")
 async def ping(interaction: discord.Interaction):
@@ -218,16 +294,11 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.defer()
     roundtrip_ms = (time.perf_counter() - start) * 1000
     ws_ms = bot.latency * 1000
-
     node_line = "`not connected`"
-    lavalink_ms = None
-
     try:
         node = wavelink.Pool.get_node()
-        # uri is like http://host:port
         info_url = f"{node.uri.rstrip('/')}/v4/info"
         password = node.password
-
         t0 = time.perf_counter()
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -244,7 +315,6 @@ async def ping(interaction: discord.Interaction):
             node_line = f"`{node.uri}` — failed (`{type(e).__name__}`)"
         except Exception:
             node_line = "`not connected`"
-
     em = discord.Embed(
         title="*Pong*",
         color=discord.Color.from_rgb(255, 255, 255),
@@ -252,16 +322,14 @@ async def ping(interaction: discord.Interaction):
     em.add_field(name="WebSocket", value=f"`{ws_ms:.0f} ms`", inline=True)
     em.add_field(name="Round-trip", value=f"`{roundtrip_ms:.0f} ms`", inline=True)
     em.add_field(name="Lavalink", value=node_line, inline=False)
-
     await interaction.followup.send(embed=em)
+
 
 @bot.tree.command(name="play", description="Play a song or resume if paused")
 @app_commands.describe(search="Song name or URL (leave empty to resume if paused)")
 async def play(interaction: discord.Interaction, search: str | None = None):
     await interaction.response.defer()
-
     vc = get_vc(interaction)
-
     if not search or not search.strip():
         if vc is not None and vc.paused:
             await vc.pause(False)
@@ -271,13 +339,11 @@ async def play(interaction: discord.Interaction, search: str | None = None):
             "Or `/play` with no args while paused to resume.",
             ephemeral=True,
         )
-
     if not getattr(interaction.user.voice, "channel", None):
         return await interaction.followup.send(
             "You are not in a vc, therefore you cannot use `/play`",
             ephemeral=True,
         )
-
     try:
         wavelink.Pool.get_node()
     except wavelink.InvalidNodeException:
@@ -286,7 +352,6 @@ async def play(interaction: discord.Interaction, search: str | None = None):
             "Wait a few seconds or check the console.",
             ephemeral=True,
         )
-
     try:
         tracks = await search_tracks(search)
     except wavelink.LavalinkLoadException as e:
@@ -295,10 +360,8 @@ async def play(interaction: discord.Interaction, search: str | None = None):
         )
     except Exception as e:
         return await interaction.followup.send(f"Search error: `{e!r}`")
-
     if not tracks:
         return await interaction.followup.send(f"No tracks found for `{search}`")
-
     if not vc:
         try:
             vc = await interaction.user.voice.channel.connect(
@@ -312,15 +375,12 @@ async def play(interaction: discord.Interaction, search: str | None = None):
             )
     else:
         vc = get_vc(interaction)
-
     vc.autoplay = wavelink.AutoPlayMode.partial
     vc.announce_channel = interaction.channel
     if not hasattr(vc, "_announce_next"):
         vc._announce_next = False
-
     await vc.set_volume(100)
     actively_playing = vc.playing and not vc.paused
-
     if isinstance(tracks, wavelink.Playlist):
         added = await vc.queue.put_wait(tracks)
         await interaction.followup.send(
@@ -337,19 +397,15 @@ async def play(interaction: discord.Interaction, search: str | None = None):
             if vc.current is not None:
                 await interaction.followup.send(embed=now_playing_embed(vc.current))
         return
-
     track: wavelink.Playable = tracks[0]
     print(f"resolved track title={track.title!r} uri={getattr(track, 'uri', None)}")
-
     if actively_playing:
         await vc.queue.put_wait(track)
         return await interaction.followup.send(
             f"***➤ Added `{track.title}` to the queue***"
         )
-
     vc._announce_next = False
     await vc.queue.put_wait(track)
-
     if vc.paused and vc.current is not None:
         await vc.skip(force=True)
         if vc.paused:
@@ -358,7 +414,6 @@ async def play(interaction: discord.Interaction, search: str | None = None):
         await vc.play(vc.queue.get(), paused=False)
     else:
         await vc.pause(False)
-
     await interaction.followup.send(embed=now_playing_embed(track))
 
 
@@ -370,11 +425,10 @@ async def pause(interaction: discord.Interaction):
         return
     if vc.paused:
         return await interaction.followup.send("Already paused.", ephemeral=True)
-
     await vc.pause(True)
     em = discord.Embed(title="*Paused*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
-        name="*we `paused` your song for ya*",
+        name="",
         value="either use `/play` or `/resume` to unpause",
     )
     await interaction.followup.send(embed=em)
@@ -388,11 +442,10 @@ async def resume(interaction: discord.Interaction):
         return
     if not vc.paused:
         return await interaction.followup.send("Not paused.", ephemeral=True)
-
     await vc.pause(False)
     em = discord.Embed(title="*Resumed*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
-        name="*we `resumed` your song for ya*",
+        name="",
         value="enjoy ur song.. ig BAKA",
     )
     await interaction.followup.send(embed=em)
@@ -404,14 +457,12 @@ async def stop(interaction: discord.Interaction):
     vc = await get_player_or_error(interaction, "stop")
     if vc is None:
         return
-
     vc.queue.mode = wavelink.QueueMode.normal
     vc.queue.clear()
     await vc.skip(force=True)
-
     em = discord.Embed(title="*Stopped*", color=discord.Color.from_rgb(255, 255, 255))
     em.add_field(
-        name="*we `stopped` your song for ya*",
+        name="",
         value="use `/play` and a song of ur choice to start it up again",
     )
     await interaction.followup.send(embed=em)
@@ -426,14 +477,13 @@ async def disconnect(interaction: discord.Interaction):
             "I'm not in a vc, therefore you cannot use `/disconnect`",
             ephemeral=True,
         )
-
     await vc.disconnect()
     em = discord.Embed(
         title="*Disconnected*",
         color=discord.Color.from_rgb(255, 255, 255),
     )
     em.add_field(
-        name="*the bot has been `disconnected`*",
+        name="",
         value="type `/play` and a song of choice to invite it back :]",
     )
     await interaction.followup.send(embed=em)
@@ -445,7 +495,6 @@ async def loop(interaction: discord.Interaction):
     vc = await get_player_or_error(interaction, "loop")
     if vc is None:
         return
-
     if vc.queue.mode is wavelink.QueueMode.loop:
         vc.queue.mode = wavelink.QueueMode.normal
         title = vc.current.title if vc.current else "your song"
@@ -463,11 +512,9 @@ async def skip(interaction: discord.Interaction):
     vc = await get_player_or_error(interaction, "skip")
     if vc is None:
         return
-
     await vc.skip(force=True)
     if vc.paused:
         await vc.pause(False)
-
     em = discord.Embed(title="*skipped your song*", color=discord.Color.from_rgb(255, 255, 255))
     await interaction.followup.send(embed=em)
 
@@ -523,21 +570,19 @@ async def queue(interaction: discord.Interaction):
         await interaction.response.defer()
     except discord.NotFound:
         return
-
     vc = get_vc(interaction)
     if vc is None:
         return await interaction.followup.send(
             "You are not in a vc, therefore you cannot use `/queue`",
             ephemeral=True,
         )
-
     if vc.queue.is_empty:
         return await interaction.followup.send("*thy **`Queue`** is empty*")
-
     songs = list(vc.queue)
     current = vc.current.title if vc.current else None
     view = QueueView(interaction, songs, current)
     await interaction.followup.send(embed=view.embed(), view=view)
+
 
 @bot.tree.command(name="shuffle", description="Shuffle the songs in the queue")
 async def shuffle(interaction: discord.Interaction):
@@ -545,33 +590,27 @@ async def shuffle(interaction: discord.Interaction):
         await interaction.response.defer()
     except discord.NotFound:
         return
-
     vc = get_vc(interaction)
     if vc is None:
         return await interaction.followup.send(
             "I'm not in a vc / nothing is queued.",
             ephemeral=True,
         )
-
     if vc.queue.is_empty:
         return await interaction.followup.send(
             "Queue is empty, nothing to shuffle.",
             ephemeral=True,
         )
-
     songs = list(vc.queue)
     if len(songs) < 2:
         return await interaction.followup.send(
             "Need at least 2 songs in the queue to shuffle.",
             ephemeral=True,
         )
-
     random.shuffle(songs)
-
     vc.queue.clear()
     for song in songs:
         await vc.queue.put_wait(song)
-
     await interaction.followup.send(
         f"***➤ Shuffled `{len(songs)}` tracks in the queue***"
     )
@@ -584,34 +623,27 @@ async def remove(interaction: discord.Interaction, number: app_commands.Range[in
         await interaction.response.defer()
     except discord.NotFound:
         return
-
     vc = get_vc(interaction)
     if vc is None:
         return await interaction.followup.send(
             "I'm not in a vc and or nothing is queued.",
             ephemeral=True,
         )
-
     if vc.queue.is_empty:
         return await interaction.followup.send(
             "Queue is empty nothing to remove.",
             ephemeral=True,
         )
-
     songs = list(vc.queue)
     if number > len(songs):
         return await interaction.followup.send(
             f"Invalid number. Queue only has **{len(songs)}** track(s). Use `/queue` to check.",
             ephemeral=True,
         )
-
-    removed = songs.pop(number - 1)  
-
-   
+    removed = songs.pop(number - 1)
     vc.queue.clear()
     for song in songs:
         await vc.queue.put_wait(song)
-
     await interaction.followup.send(
         f"***➤ Removed `{removed.title}` from the queue***"
     )
@@ -623,18 +655,14 @@ async def info(interaction: discord.Interaction):
         await interaction.response.defer()
     except discord.NotFound:
         return
-
     vc = await get_player_or_error(interaction, "info", require_playing=False)
     if vc is None:
         return
-
     track = vc.current
     if track is None:
         return await interaction.followup.send("Nothing is currently playing.")
-
     is_paused = bool(vc.paused)
     is_actively_playing = bool(vc.playing) and not is_paused
-
     em = discord.Embed(
         title="***Info***",
         description=f"➤ **Artist:** \n `{track.author}`",
@@ -651,15 +679,14 @@ async def info(interaction: discord.Interaction):
     )
     em.add_field(name="➤ Playing:", value=f"`{is_actively_playing}`")
     em.add_field(name="➤ Paused:", value=f"`{is_paused}`")
-
     if track.uri:
         em.add_field(
             name="Extra Info:",
             value=f"[Click me for original]({track.uri})",
             inline=False,
         )
-
     await interaction.followup.send(embed=em)
+
 
 @bot.tree.command(name="help", description="Show bot commands")
 async def help_cmd(interaction: discord.Interaction):
@@ -677,10 +704,22 @@ async def help_cmd(interaction: discord.Interaction):
     em.add_field(name="**/stop**:", value="stops playback and clears the queue", inline=False)
     em.add_field(name="**/skip**:", value="skips to the next song in queue", inline=False)
     em.add_field(name="**/disconnect**:", value="makes MpFree leave the vc", inline=False)
-    em.add_field(name="**/loop**:", value="loops current song, run again to stop looping", inline=False,)
+    em.add_field(
+        name="**/loop**:",
+        value="loops current song, run again to stop looping",
+        inline=False,
+    )
     em.add_field(name="**/queue**:", value="shows queued songs", inline=False)
-    em.add_field(name="**/remove**:", value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)", inline=False,)
-    em.add_field(name="**/shuffle**:", value="randomizes the order of songs in the queue", inline=False,)
+    em.add_field(
+        name="**/remove**:",
+        value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)",
+        inline=False,
+    )
+    em.add_field(
+        name="**/shuffle**:",
+        value="randomizes the order of songs in the queue",
+        inline=False,
+    )
     em.add_field(name="**/info**:", value="info on the song being played", inline=False)
     em.add_field(name="**/more**:", value="sends my website", inline=False)
     await interaction.response.send_message(embed=em)
@@ -691,39 +730,3 @@ if __name__ == "__main__":
     if not token:
         raise SystemExit("Missing DISCORD_TOKEN in .env")
     bot.run(token)
-
-
-
-
-
-
-
-'''                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-           By TR ASH                                                                     
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                                                                                                   
-                   ░███                              ██                    ░███                    
-░█░               ░█████                                 ████             ░█████                ░█▒
- ███▓             ██▓ ▓██                                ████████████████ ██▓ ███             ▓███ 
-   ▒████▒        ███   ███                               ██████████████████▓   ███        ▒████▒   
-    ░▓█████░    ███     ███    ▒█████▒                   ██████████████████     ███     █████▓▒    
- ▒████▒▒▓██░                   ▓█████▓   ▒██    ▒█▓    ▓█▒██████████████                ██▓▒▒████▒ 
-░██░████▓▒                      ████▓    ▒██    ▒█▓    ▓█▒ ████████████                  ▒▓████░▓█▒
- ▒███░                                    ██▒  ▒███▒  ▒██    ██████                          ░███▒ 
-░█▓                                        ▒████▒ ▒████▒                                        ▓█▒
-                                                                                           
-
-'''
