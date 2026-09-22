@@ -9,6 +9,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import wavelink
+from discord.ext import tasks
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -40,6 +41,20 @@ LAVALINK_SECURE = False
 
 # leave VC after this many minutes alone or with no music
 IDLE_LEAVE_MINUTES = 10
+
+
+KUMA_PUSH_URL = os.environ.get("KUMA_PUSH_URL")
+
+@tasks.loop(seconds=45)
+async def heartbeat():
+    if not KUMA_PUSH_URL:
+        return
+    if bot.is_ready() and not bot.is_closed():
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.get(KUMA_PUSH_URL, timeout=aiohttp.ClientTimeout(total=10))
+        except Exception as e:
+            print(f"Kuma heartbeat failed: {e!r}")
 
 
 async def ch_pr():
@@ -225,6 +240,7 @@ async def on_ready():
     bot.loop.create_task(node_connect())
     bot.loop.create_task(ch_pr())
     bot.loop.create_task(idle_disconnect_task())
+    heartbeat.start()
 
 
 @bot.event
