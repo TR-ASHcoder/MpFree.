@@ -45,7 +45,7 @@ IDLE_LEAVE_MINUTES = 10
 
 KUMA_PUSH_URL = os.environ.get("KUMA_PUSH_URL")
 
-@tasks.loop(seconds=45)
+@tasks.loop(seconds=20)
 async def heartbeat():
     if not KUMA_PUSH_URL:
         return
