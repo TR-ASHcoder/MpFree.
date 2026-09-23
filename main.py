@@ -33,11 +33,17 @@ STATUSES = [
     "Never Gonna Give You Up by Rick Astley",
 ]
 
+
+LAVALINK_HOST = "lava-v4.millohost.my.id"
+LAVALINK_PORT = 443
+LAVALINK_PASSWORD = "https://discord.gg/mjS5J2K3ep"
+LAVALINK_SECURE = True   # must be True — HTTPS only
+
 # lavalink server ( thanks kasawa! )
-LAVALINK_HOST = "lava2.kasawa.pro"
-LAVALINK_PORT = 2334
-LAVALINK_PASSWORD = "youshallnotpass"
-LAVALINK_SECURE = False
+# LAVALINK_HOST = "lava2.kasawa.pro"
+# LAVALINK_PORT = 2334
+# LAVALINK_PASSWORD = "youshallnotpass"
+# LAVALINK_SECURE = False
 
 # leave VC after this many minutes alone or with no music
 IDLE_LEAVE_MINUTES = 10
