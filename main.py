@@ -50,9 +50,11 @@ async def heartbeat():
     if not KUMA_PUSH_URL:
         return
     if bot.is_ready() and not bot.is_closed():
+        ping_ms = round(bot.latency * 1000)
+        url = f"{KUMA_PUSH_URL}{ping_ms}"
         try:
             async with aiohttp.ClientSession() as session:
-                await session.get(KUMA_PUSH_URL, timeout=aiohttp.ClientTimeout(total=10))
+                await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
         except Exception as e:
             print(f"Kuma heartbeat failed: {e!r}")
 
