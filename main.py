@@ -60,15 +60,21 @@ async def heartbeat():
 async def ch_pr():
     await bot.wait_until_ready()
     while not bot.is_closed():
-        status = random.choice(STATUSES)
-        await bot.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.listening,
-                name=status,
-            )
-        )
-        await asyncio.sleep(5)
-
+        try:
+            if bot.is_ready() and bot.ws is not None:
+                status = random.choice(STATUSES)
+                await bot.change_presence(
+                    activity=discord.Activity(
+                        type=discord.ActivityType.listening,
+                        name=status,
+                    )
+                )
+        except (discord.ConnectionClosed, ConnectionResetError, OSError) as e:
+            print(f"presence skip: {type(e).__name__}")
+        except Exception as e:
+            # aiohttp ClientConnectionResetError etc.
+            print(f"presence skip: {e!r}")
+        await asyncio.sleep(10)
 
 async def node_connect():
     await bot.wait_until_ready()
