@@ -4,6 +4,8 @@ import asyncio
 import datetime
 import time
 import aiohttp
+import math
+
 
 import discord
 from discord import app_commands
@@ -11,6 +13,7 @@ from discord.ext import commands
 import wavelink
 from discord.ext import tasks
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -45,19 +48,26 @@ IDLE_LEAVE_MINUTES = 10
 
 KUMA_PUSH_URL = os.environ.get("KUMA_PUSH_URL")
 
+
 @tasks.loop(seconds=20)
 async def heartbeat():
     if not KUMA_PUSH_URL:
         return
-    if bot.is_ready() and not bot.is_closed():
-        ping_ms = round(bot.latency * 1000)
-        url = f"{KUMA_PUSH_URL}{ping_ms}"
-        try:
-            async with aiohttp.ClientSession() as session:
-                await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
-        except Exception as e:
-            print(f"Kuma heartbeat failed: {e!r}")
+    if not bot.is_ready() or bot.is_closed():
+        return
 
+    latency = bot.latency
+    if not math.isfinite(latency):
+        # gateway reconnecting - skip this push
+        return
+
+    ping_ms = round(latency * 1000)
+    url = f"{KUMA_PUSH_URL}{ping_ms}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
+    except Exception as e:
+        print(f"Kuma heartbeat failed: {e!r}")
 
 async def ch_pr():
     await bot.wait_until_ready()
