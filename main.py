@@ -43,9 +43,9 @@ STATUSES = [
 # LAVALINK_SECURE = False
 
 # using back up till kasawa is fixed 
-LAVALINK_HOST = "lavalink.jirayu.net"
-LAVALINK_PORT = 13592
-LAVALINK_PASSWORD = "youshallnotpass"
+LAVALINK_HOST = "lavalinkv4.serenetia.com"
+LAVALINK_PORT = 80
+LAVALINK_PASSWORD = "https://seretia.link/discord"
 LAVALINK_SECURE = False
 
 
