@@ -37,10 +37,17 @@ STATUSES = [
 ]
 
 # lavalink server ( thanks kasawa! )
-LAVALINK_HOST = "lava2.kasawa.pro"
-LAVALINK_PORT = 2334
+# LAVALINK_HOST = "lava2.kasawa.pro"
+# LAVALINK_PORT = 2334
+# LAVALINK_PASSWORD = "youshallnotpass"
+# LAVALINK_SECURE = False
+
+# using back up till kasawa is fixed 
+LAVALINK_HOST = "lavalink.jirayu.net"
+LAVALINK_PORT = 13592
 LAVALINK_PASSWORD = "youshallnotpass"
 LAVALINK_SECURE = False
+
 
 # leave VC after this many minutes alone or with no music
 IDLE_LEAVE_MINUTES = 10
