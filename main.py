@@ -42,11 +42,6 @@ LAVALINK_PORT = 2334
 LAVALINK_PASSWORD = "youshallnotpass"
 LAVALINK_SECURE = False 
 
-# LAVALINK_HOST = "lavalinkv4.serenetia.com"
-# LAVALINK_PORT = 80
-# LAVALINK_PASSWORD = "https://seretia.link/discord"
-# LAVALINK_SECURE = False
-
 # leave VC after this many minutes alone or with no music
 IDLE_LEAVE_MINUTES = 10
 
@@ -326,6 +321,42 @@ async def on_wavelink_track_stuck(payload: wavelink.TrackStuckEventPayload):
 @bot.tree.command(name="more", description="Sends my website link")
 async def more(interaction: discord.Interaction):
     await interaction.response.send_message("https://myokaylinkssite.netlify.app/")
+
+
+
+@bot.tree.command(name="clear", description="Clear the queue but keep the current song")
+async def clear(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        return
+
+    vc = get_vc(interaction)
+    if vc is None:
+        return await interaction.followup.send(
+            "I'm not in a vc / nothing is playing.",
+            ephemeral=True,
+        )
+
+    if vc.queue.is_empty:
+        return await interaction.followup.send(
+            "Queue is already empty.",
+            ephemeral=True,
+        )
+
+    count = len(vc.queue)
+    vc.queue.clear()
+
+    em = discord.Embed(
+        title="*Cleared*",
+        color=discord.Color.from_rgb(255, 255, 255),
+    )
+    em.add_field(
+        name="",
+        value=f"removed `{count}` track{'s' if count != 1 else ''} from the queue",
+    )
+    await interaction.followup.send(embed=em)
+
 
 
 @bot.tree.command(name="ping", description="Show bot and Lavalink latency")
@@ -754,6 +785,11 @@ async def help_cmd(interaction: discord.Interaction):
         name="**/remove**:",
         value="`/remove <number>` removes that song from the queue (see `/queue` for numbers)",
         inline=False,
+    )
+    em.add_field(
+    name="**/clear**:",
+    value="clears the queue but keeps the song that's playing",
+    inline=False,
     )
     em.add_field(
         name="**/shuffle**:",
