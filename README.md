@@ -71,7 +71,7 @@ On startup, the bot syncs its slash commands and connects to its configured Lava
 ## Commands
 
 | Command | Description |
-|---|---|
+| --- | --- |
 | `/play <song>` | Plays a song/URL, or resumes if paused and run with no argument |
 | `/pause` | Pauses the current song |
 | `/resume` | Resumes a paused song |
@@ -80,11 +80,12 @@ On startup, the bot syncs its slash commands and connects to its configured Lava
 | `/queue` | Shows the queued songs (paginated) |
 | `/shuffle` | Randomizes the order of songs in the queue |
 | `/remove <number>` | Removes a track from the queue by its position |
+| `/clear` | Clears the queue but keeps the song that’s playing |
 | `/loop` | Toggles looping of the current song |
 | `/info` | Shows info about the currently playing song |
 | `/disconnect` | Makes the bot leave the voice channel |
-| `/ping` | Shows bot and Lavalink latency [ isnt in `/help` ] | 
-| `/more` | Sends the developer's website link |
+| `/ping` | Shows bot and Lavalink latency [ isn’t in `/help` ] |
+| `/more` | Sends the developer’s website link |
 | `/help` | Lists all available commands |
 
 ## Tech Stack
